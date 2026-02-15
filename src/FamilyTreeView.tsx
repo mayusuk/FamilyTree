@@ -393,6 +393,12 @@ export function FamilyTreeView({
     lastCenterX: 0,
     lastCenterY: 0,
   });
+  const doubleTapRef = useRef<{ time: number; x: number; y: number } | null>(null);
+  // Refs to hold latest zoom/pan so native listeners always see current values
+  const zoomRef = useRef(zoom);
+  zoomRef.current = zoom;
+  const panRef = useRef(pan);
+  panRef.current = pan;
   const [theme, setTheme] = useState<TreeTheme>(() => {
     const stored = localStorage.getItem(TREE_THEME_STORAGE_KEY);
     if (stored === 'classic' || stored === 'modern' || stored === 'minimal' || stored === 'contrast') {
@@ -481,10 +487,11 @@ export function FamilyTreeView({
     const pointX = clientX - rect.left;
     const pointY = clientY - rect.top;
     const clampedZoom = clamp(nextZoom, 0.3, 3);
+    const currentZoom = zoomRef.current;
 
     setPan((prev) => {
-      const contentX = (pointX - prev.x) / zoom;
-      const contentY = (pointY - prev.y) / zoom;
+      const contentX = (pointX - prev.x) / currentZoom;
+      const contentY = (pointY - prev.y) / currentZoom;
       return {
         x: pointX - contentX * clampedZoom,
         y: pointY - contentY * clampedZoom,
@@ -528,13 +535,22 @@ export function FamilyTreeView({
     setPan({ x: centeredX, y: Math.max(8, centeredY) });
   };
 
-  const handleViewportWheel = (event: React.WheelEvent<HTMLDivElement>) => {
-    // Trackpad pinch is exposed as ctrl/meta + wheel in most browsers.
-    if (!(event.ctrlKey || event.metaKey)) return;
-    event.preventDefault();
-    const intensity = Math.exp(-event.deltaY * 0.002);
-    zoomAtPoint(event.clientX, event.clientY, zoom * intensity);
-  };
+  // Native wheel handler (non-passive) for trackpad pinch-to-zoom
+  useEffect(() => {
+    const viewport = treeViewportRef.current;
+    if (!viewport) return;
+
+    const onWheel = (event: WheelEvent) => {
+      // Trackpad pinch is exposed as ctrl/meta + wheel in most browsers.
+      if (!(event.ctrlKey || event.metaKey)) return;
+      event.preventDefault();
+      const intensity = Math.exp(-event.deltaY * 0.002);
+      zoomAtPoint(event.clientX, event.clientY, zoomRef.current * intensity);
+    };
+
+    viewport.addEventListener('wheel', onWheel, { passive: false });
+    return () => viewport.removeEventListener('wheel', onWheel);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleViewportDoubleClick = (event: React.MouseEvent<HTMLDivElement>) => {
     event.preventDefault();
@@ -563,66 +579,140 @@ export function FamilyTreeView({
     dragStateRef.current.dragging = false;
   };
 
-  // --- Touch handlers for mobile pan + pinch-to-zoom ---
-  const getTouchDist = (t1: React.Touch, t2: React.Touch) =>
-    Math.hypot(t2.clientX - t1.clientX, t2.clientY - t1.clientY);
+  // --- Native (non-passive) touch handlers for mobile pan + pinch-to-zoom + double-tap ---
+  // React synthetic touch events are passive by default, so preventDefault()
+  // is silently ignored. We attach handlers directly via addEventListener with
+  // { passive: false } so we can suppress the browser's native pinch/scroll.
+  const DOUBLE_TAP_DELAY = 300; // ms
+  const DOUBLE_TAP_DISTANCE = 30; // px
 
-  const handleTouchStart = (e: React.TouchEvent<HTMLDivElement>) => {
-    if (e.touches.length === 2) {
-      e.preventDefault();
-      const d = getTouchDist(e.touches[0], e.touches[1]);
-      touchStateRef.current = {
-        touching: false,
-        lastX: 0,
-        lastY: 0,
-        pinching: true,
-        lastDist: d,
-        lastCenterX: (e.touches[0].clientX + e.touches[1].clientX) / 2,
-        lastCenterY: (e.touches[0].clientY + e.touches[1].clientY) / 2,
-      };
-    } else if (e.touches.length === 1) {
-      const target = e.touches[0].target as HTMLElement;
-      if (target.closest('[data-tree-node]')) return;
-      touchStateRef.current = {
-        ...touchStateRef.current,
-        touching: true,
-        lastX: e.touches[0].clientX,
-        lastY: e.touches[0].clientY,
-        pinching: false,
-      };
-    }
-  };
+  useEffect(() => {
+    const viewport = treeViewportRef.current;
+    if (!viewport) return;
 
-  const handleTouchMove = (e: React.TouchEvent<HTMLDivElement>) => {
-    const ts = touchStateRef.current;
-    if (ts.pinching && e.touches.length === 2) {
-      e.preventDefault();
-      const d = getTouchDist(e.touches[0], e.touches[1]);
-      const cx = (e.touches[0].clientX + e.touches[1].clientX) / 2;
-      const cy = (e.touches[0].clientY + e.touches[1].clientY) / 2;
-      const scale = d / ts.lastDist;
-      zoomAtPoint(cx, cy, zoom * scale);
-      // Also pan with the pinch center movement
-      setPan((prev) => ({
-        x: prev.x + (cx - ts.lastCenterX),
-        y: prev.y + (cy - ts.lastCenterY),
-      }));
-      ts.lastDist = d;
-      ts.lastCenterX = cx;
-      ts.lastCenterY = cy;
-    } else if (ts.touching && e.touches.length === 1) {
-      const dx = e.touches[0].clientX - ts.lastX;
-      const dy = e.touches[0].clientY - ts.lastY;
-      ts.lastX = e.touches[0].clientX;
-      ts.lastY = e.touches[0].clientY;
-      setPan((prev) => ({ x: prev.x + dx, y: prev.y + dy }));
-    }
-  };
+    const getTouchDist = (t1: Touch, t2: Touch) =>
+      Math.hypot(t2.clientX - t1.clientX, t2.clientY - t1.clientY);
 
-  const handleTouchEnd = () => {
-    touchStateRef.current.touching = false;
-    touchStateRef.current.pinching = false;
-  };
+    const nativeZoomAtPoint = (clientX: number, clientY: number, nextZoom: number) => {
+      const rect = viewport.getBoundingClientRect();
+      const pointX = clientX - rect.left;
+      const pointY = clientY - rect.top;
+      const clampedZoom = clamp(nextZoom, 0.3, 3);
+      const currentZoom = zoomRef.current;
+      const currentPan = panRef.current;
+      const contentX = (pointX - currentPan.x) / currentZoom;
+      const contentY = (pointY - currentPan.y) / currentZoom;
+      setPan({
+        x: pointX - contentX * clampedZoom,
+        y: pointY - contentY * clampedZoom,
+      });
+      setZoom(clampedZoom);
+    };
+
+    const onTouchStart = (e: TouchEvent) => {
+      if (e.touches.length === 2) {
+        e.preventDefault();
+        const d = getTouchDist(e.touches[0], e.touches[1]);
+        touchStateRef.current = {
+          touching: false,
+          lastX: 0,
+          lastY: 0,
+          pinching: true,
+          lastDist: d,
+          lastCenterX: (e.touches[0].clientX + e.touches[1].clientX) / 2,
+          lastCenterY: (e.touches[0].clientY + e.touches[1].clientY) / 2,
+        };
+        // Cancel any pending double-tap when pinch starts
+        doubleTapRef.current = null;
+      } else if (e.touches.length === 1) {
+        const target = e.touches[0].target as HTMLElement;
+        if (target.closest('[data-tree-node]')) return;
+        e.preventDefault();
+        touchStateRef.current = {
+          ...touchStateRef.current,
+          touching: true,
+          lastX: e.touches[0].clientX,
+          lastY: e.touches[0].clientY,
+          pinching: false,
+        };
+      }
+    };
+
+    const onTouchMove = (e: TouchEvent) => {
+      const ts = touchStateRef.current;
+      if (ts.pinching && e.touches.length === 2) {
+        e.preventDefault();
+        const d = getTouchDist(e.touches[0], e.touches[1]);
+        const cx = (e.touches[0].clientX + e.touches[1].clientX) / 2;
+        const cy = (e.touches[0].clientY + e.touches[1].clientY) / 2;
+        const scale = d / ts.lastDist;
+        nativeZoomAtPoint(cx, cy, zoomRef.current * scale);
+        // Also pan with the pinch center movement
+        setPan((prev) => ({
+          x: prev.x + (cx - ts.lastCenterX),
+          y: prev.y + (cy - ts.lastCenterY),
+        }));
+        ts.lastDist = d;
+        ts.lastCenterX = cx;
+        ts.lastCenterY = cy;
+      } else if (ts.touching && e.touches.length === 1) {
+        e.preventDefault();
+        const dx = e.touches[0].clientX - ts.lastX;
+        const dy = e.touches[0].clientY - ts.lastY;
+        ts.lastX = e.touches[0].clientX;
+        ts.lastY = e.touches[0].clientY;
+        setPan((prev) => ({ x: prev.x + dx, y: prev.y + dy }));
+      }
+    };
+
+    const onTouchEnd = (e: TouchEvent) => {
+      const ts = touchStateRef.current;
+      const wasPinching = ts.pinching;
+      ts.touching = false;
+      ts.pinching = false;
+
+      // Double-tap detection: only for single-finger taps that didn't pinch
+      if (wasPinching || e.changedTouches.length !== 1) {
+        doubleTapRef.current = null;
+        return;
+      }
+
+      const touch = e.changedTouches[0];
+      const now = Date.now();
+      const prev = doubleTapRef.current;
+
+      if (
+        prev &&
+        now - prev.time < DOUBLE_TAP_DELAY &&
+        Math.hypot(touch.clientX - prev.x, touch.clientY - prev.y) < DOUBLE_TAP_DISTANCE
+      ) {
+        // Double-tap detected
+        e.preventDefault();
+        const currentZoom = zoomRef.current;
+        // If already zoomed in (>1.15), reset to 1; otherwise zoom to 2×
+        if (currentZoom > 1.15) {
+          nativeZoomAtPoint(touch.clientX, touch.clientY, 1);
+        } else {
+          nativeZoomAtPoint(touch.clientX, touch.clientY, 2);
+        }
+        doubleTapRef.current = null;
+      } else {
+        doubleTapRef.current = { time: now, x: touch.clientX, y: touch.clientY };
+      }
+    };
+
+    viewport.addEventListener('touchstart', onTouchStart, { passive: false });
+    viewport.addEventListener('touchmove', onTouchMove, { passive: false });
+    viewport.addEventListener('touchend', onTouchEnd, { passive: false });
+    viewport.addEventListener('touchcancel', onTouchEnd, { passive: false });
+
+    return () => {
+      viewport.removeEventListener('touchstart', onTouchStart);
+      viewport.removeEventListener('touchmove', onTouchMove);
+      viewport.removeEventListener('touchend', onTouchEnd);
+      viewport.removeEventListener('touchcancel', onTouchEnd);
+    };
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Lock body scroll when in iOS fullscreen mode
   useEffect(() => {
@@ -691,16 +781,11 @@ export function FamilyTreeView({
       <div
         ref={treeViewportRef}
         className="tree-viewport"
-        onWheel={handleViewportWheel}
         onDoubleClick={handleViewportDoubleClick}
         onMouseDown={handleViewportMouseDown}
         onMouseMove={handleViewportMouseMove}
         onMouseUp={endViewportDrag}
         onMouseLeave={endViewportDrag}
-        onTouchStart={handleTouchStart}
-        onTouchMove={handleTouchMove}
-        onTouchEnd={handleTouchEnd}
-        onTouchCancel={handleTouchEnd}
       >
         <div
           ref={treeDiagramRef}
