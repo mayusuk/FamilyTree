@@ -376,6 +376,23 @@ export function FamilyTreeView({
     lastX: 0,
     lastY: 0,
   });
+  const touchStateRef = useRef<{
+    touching: boolean;
+    lastX: number;
+    lastY: number;
+    pinching: boolean;
+    lastDist: number;
+    lastCenterX: number;
+    lastCenterY: number;
+  }>({
+    touching: false,
+    lastX: 0,
+    lastY: 0,
+    pinching: false,
+    lastDist: 0,
+    lastCenterX: 0,
+    lastCenterY: 0,
+  });
   const [theme, setTheme] = useState<TreeTheme>(() => {
     const stored = localStorage.getItem(TREE_THEME_STORAGE_KEY);
     if (stored === 'classic' || stored === 'modern' || stored === 'minimal' || stored === 'contrast') {
@@ -416,6 +433,24 @@ export function FamilyTreeView({
     return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
   }, []);
 
+  // Auto-enter fullscreen on mobile when tree view mounts
+  useEffect(() => {
+    const isMobile = window.matchMedia('(max-width: 768px)').matches;
+    if (!isMobile) return;
+    const el = treeViewRef.current;
+    if (!el) return;
+    // Small delay to ensure the DOM is ready
+    const timer = setTimeout(async () => {
+      try {
+        await el.requestFullscreen();
+      } catch {
+        // Fallback for iOS Safari
+        setIsFullscreen(true);
+      }
+    }, 300);
+    return () => clearTimeout(timer);
+  }, []);
+
   useEffect(() => {
     localStorage.setItem(TREE_THEME_STORAGE_KEY, theme);
   }, [theme]);
@@ -423,14 +458,19 @@ export function FamilyTreeView({
   const toggleFullscreen = async () => {
     const el = treeViewRef.current;
     if (!el) return;
+
+    // Check for native Fullscreen API first
+    if (document.fullscreenElement === el) {
+      try { await document.exitFullscreen(); } catch { /* ignore */ }
+      return;
+    }
+    if (document.fullscreenElement) return;
+
     try {
-      if (document.fullscreenElement === el) {
-        await document.exitFullscreen();
-      } else if (!document.fullscreenElement) {
-        await el.requestFullscreen();
-      }
+      await el.requestFullscreen();
     } catch {
-      // Ignore browser fullscreen API failures.
+      // Fallback for iOS Safari which doesn't support Fullscreen API
+      setIsFullscreen((prev) => !prev);
     }
   };
 
@@ -523,6 +563,75 @@ export function FamilyTreeView({
     dragStateRef.current.dragging = false;
   };
 
+  // --- Touch handlers for mobile pan + pinch-to-zoom ---
+  const getTouchDist = (t1: React.Touch, t2: React.Touch) =>
+    Math.hypot(t2.clientX - t1.clientX, t2.clientY - t1.clientY);
+
+  const handleTouchStart = (e: React.TouchEvent<HTMLDivElement>) => {
+    if (e.touches.length === 2) {
+      e.preventDefault();
+      const d = getTouchDist(e.touches[0], e.touches[1]);
+      touchStateRef.current = {
+        touching: false,
+        lastX: 0,
+        lastY: 0,
+        pinching: true,
+        lastDist: d,
+        lastCenterX: (e.touches[0].clientX + e.touches[1].clientX) / 2,
+        lastCenterY: (e.touches[0].clientY + e.touches[1].clientY) / 2,
+      };
+    } else if (e.touches.length === 1) {
+      const target = e.touches[0].target as HTMLElement;
+      if (target.closest('[data-tree-node]')) return;
+      touchStateRef.current = {
+        ...touchStateRef.current,
+        touching: true,
+        lastX: e.touches[0].clientX,
+        lastY: e.touches[0].clientY,
+        pinching: false,
+      };
+    }
+  };
+
+  const handleTouchMove = (e: React.TouchEvent<HTMLDivElement>) => {
+    const ts = touchStateRef.current;
+    if (ts.pinching && e.touches.length === 2) {
+      e.preventDefault();
+      const d = getTouchDist(e.touches[0], e.touches[1]);
+      const cx = (e.touches[0].clientX + e.touches[1].clientX) / 2;
+      const cy = (e.touches[0].clientY + e.touches[1].clientY) / 2;
+      const scale = d / ts.lastDist;
+      zoomAtPoint(cx, cy, zoom * scale);
+      // Also pan with the pinch center movement
+      setPan((prev) => ({
+        x: prev.x + (cx - ts.lastCenterX),
+        y: prev.y + (cy - ts.lastCenterY),
+      }));
+      ts.lastDist = d;
+      ts.lastCenterX = cx;
+      ts.lastCenterY = cy;
+    } else if (ts.touching && e.touches.length === 1) {
+      const dx = e.touches[0].clientX - ts.lastX;
+      const dy = e.touches[0].clientY - ts.lastY;
+      ts.lastX = e.touches[0].clientX;
+      ts.lastY = e.touches[0].clientY;
+      setPan((prev) => ({ x: prev.x + dx, y: prev.y + dy }));
+    }
+  };
+
+  const handleTouchEnd = () => {
+    touchStateRef.current.touching = false;
+    touchStateRef.current.pinching = false;
+  };
+
+  // Lock body scroll when in iOS fullscreen mode
+  useEffect(() => {
+    if (isFullscreen && !document.fullscreenElement) {
+      document.body.style.overflow = 'hidden';
+      return () => { document.body.style.overflow = ''; };
+    }
+  }, [isFullscreen]);
+
   useEffect(() => {
     if (!selectedId || !treeViewRef.current) return;
     const node = treeViewRef.current.querySelector<HTMLElement>(`[data-person-id="${selectedId}"]`);
@@ -544,6 +653,11 @@ export function FamilyTreeView({
       className={`family-tree-view family-tree-view-ref ${isFullscreen ? 'is-fullscreen' : ''}`}
       data-tree-theme={theme}
     >
+      {/* Landscape hint — shown only in portrait on mobile */}
+      <div className="tree-rotate-hint">
+        <span>&#x21BB;</span> Rotate device to landscape for the best view
+      </div>
+
       <div className="tree-toolbar">
         <p className="tree-hint muted">
           Click a person to focus and see details. {focusPersonId ? 'Showing focused family context.' : 'Showing whole tree.'}
@@ -556,6 +670,7 @@ export function FamilyTreeView({
           <button type="button" onClick={fitToScreen}>Fit</button>
           <button
             type="button"
+            className="tree-btn-desktop-only"
             onClick={() => {
               setZoom(1);
               setPan({ x: 0, y: 0 });
@@ -563,7 +678,7 @@ export function FamilyTreeView({
           >
             Reset
           </button>
-          <button type="button" onClick={toggleFullscreen}>{isFullscreen ? 'Exit full screen' : 'Full screen'}</button>
+          <button type="button" onClick={toggleFullscreen}>{isFullscreen ? 'Exit' : 'Full screen'}</button>
         </div>
         <div className="tree-theme-controls" role="group" aria-label="Tree theme">
           <button type="button" className={theme === 'classic' ? 'active' : ''} onClick={() => setTheme('classic')}>Classic</button>
@@ -582,6 +697,10 @@ export function FamilyTreeView({
         onMouseMove={handleViewportMouseMove}
         onMouseUp={endViewportDrag}
         onMouseLeave={endViewportDrag}
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+        onTouchCancel={handleTouchEnd}
       >
         <div
           ref={treeDiagramRef}

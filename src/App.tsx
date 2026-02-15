@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import type { Person, PersonId } from './types';
 import {
   addChildRelations,
@@ -42,6 +42,21 @@ export default function App() {
     data: null,
     dirty: false,
   });
+  const [mobileSidebar, setMobileSidebar] = useState(false);
+  const [mobileDetail, setMobileDetail] = useState(false);
+
+  // Close mobile panels when switching views
+  useEffect(() => {
+    setMobileSidebar(false);
+    setMobileDetail(false);
+  }, [view]);
+
+  // Open detail when a tree node is selected on mobile
+  useEffect(() => {
+    if (selectedTreeId && view === 'tree') {
+      setMobileDetail(true);
+    }
+  }, [selectedTreeId, view]);
 
   const editingPerson = editingId ? getPerson(editingId) : null;
 
@@ -239,18 +254,48 @@ export default function App() {
 
         {view === 'tree' && (
           <div className="tree-layout">
-            <aside className="tree-people-sidebar">
+            {/* Mobile floating action buttons */}
+            <div className="tree-mobile-fab">
+              <button
+                type="button"
+                className={`btn btn-fab ${mobileSidebar ? 'active' : ''}`}
+                onClick={() => { setMobileSidebar((v) => !v); setMobileDetail(false); }}
+                aria-label="People list"
+              >
+                <span aria-hidden="true">&#9776;</span>
+              </button>
+              <button
+                type="button"
+                className={`btn btn-fab ${mobileDetail ? 'active' : ''}`}
+                onClick={() => { setMobileDetail((v) => !v); setMobileSidebar(false); }}
+                aria-label="Person details"
+              >
+                <span aria-hidden="true">&#9432;</span>
+              </button>
+            </div>
+
+            <aside className={`tree-people-sidebar ${mobileSidebar ? 'mobile-open' : ''}`}>
               <div className="list-header">
                 <h2>People</h2>
-                {focusedTreePersonId && (
+                <div style={{ display: 'flex', gap: '0.5rem' }}>
+                  {focusedTreePersonId && (
+                    <button
+                      type="button"
+                      className="btn btn-ghost"
+                      onClick={() => setFocusedTreePersonId(null)}
+                    >
+                      Zoom out
+                    </button>
+                  )}
                   <button
                     type="button"
-                    className="btn btn-ghost"
-                    onClick={() => setFocusedTreePersonId(null)}
+                    className="btn btn-ghost mobile-close-btn"
+                    onClick={() => setMobileSidebar(false)}
+                    aria-label="Close"
                   >
-                    Zoom out
+                    ✕
                   </button>
-                )}
+                </div>
               </div>
               <ul className="person-list tree-person-list">
                 {people.map((p) => (
@@ -261,6 +306,7 @@ export default function App() {
                       onClick={() => {
                         setFocusedTreePersonId(p.id);
                         setSelectedTreeId(p.id);
+                        setMobileSidebar(false);
                       }}
                     >
                       <div className="person-list-photo">
@@ -275,6 +321,10 @@ export default function App() {
                 ))}
               </ul>
             </aside>
+            {/* Mobile overlay backdrop */}
+            {(mobileSidebar || mobileDetail) && (
+              <div className="mobile-overlay-backdrop" onClick={() => { setMobileSidebar(false); setMobileDetail(false); }} />
+            )}
             <div className="tree-panel">
               <FamilyTreeView
                 people={people}
@@ -284,7 +334,16 @@ export default function App() {
                 onSelect={setSelectedTreeId}
               />
             </div>
-            <aside className="tree-detail">
+            <aside className={`tree-detail ${mobileDetail ? 'mobile-open' : ''}`}>
+              <button
+                type="button"
+                className="btn btn-ghost mobile-close-btn"
+                onClick={() => setMobileDetail(false)}
+                aria-label="Close"
+                style={{ float: 'right' }}
+              >
+                ✕
+              </button>
               {selectedTreeId ? (
                 (() => {
                   const p = getPerson(selectedTreeId);
@@ -308,7 +367,7 @@ export default function App() {
                   );
                 })()
               ) : (
-                <p className="muted">Click a person on the tree to see details.</p>
+                <p className="muted">Tap a person on the tree to see details.</p>
               )}
             </aside>
           </div>

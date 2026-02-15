@@ -31,6 +31,7 @@ body {
 
 .app {
   min-height: 100vh;
+  min-height: 100dvh;
   display: flex;
   flex-direction: column;
 }
@@ -38,20 +39,33 @@ body {
 .app-header {
   background: var(--bg-card);
   border-bottom: 1px solid var(--border);
-  padding: 1rem 1.5rem;
+  padding: 0.75rem 1rem;
   display: flex;
   align-items: center;
   justify-content: space-between;
   flex-wrap: wrap;
-  gap: 1rem;
+  gap: 0.5rem;
+}
+
+@media (min-width: 600px) {
+  .app-header {
+    padding: 1rem 1.5rem;
+    gap: 1rem;
+  }
 }
 
 .app-header h1 {
   margin: 0;
   font-family: var(--font-serif);
   font-weight: 600;
-  font-size: 1.75rem;
+  font-size: 1.35rem;
   color: var(--ink);
+}
+
+@media (min-width: 600px) {
+  .app-header h1 {
+    font-size: 1.75rem;
+  }
 }
 
 .view-tabs {
@@ -63,13 +77,22 @@ body {
 }
 
 .view-tabs button {
-  padding: 0.5rem 1rem;
+  padding: 0.5rem 0.85rem;
   border: none;
   background: transparent;
   font-family: var(--font-sans);
-  font-size: 0.9rem;
+  font-size: 0.85rem;
   cursor: pointer;
   color: var(--ink-muted);
+  min-height: 40px;
+  -webkit-tap-highlight-color: transparent;
+}
+
+@media (min-width: 600px) {
+  .view-tabs button {
+    padding: 0.5rem 1rem;
+    font-size: 0.9rem;
+  }
 }
 
 .view-tabs button.active {
@@ -84,22 +107,29 @@ body {
 
 .app-main {
   flex: 1;
-  padding: 1.5rem;
+  padding: 0.75rem;
   overflow: auto;
+}
+
+@media (min-width: 600px) {
+  .app-main {
+    padding: 1.5rem;
+  }
 }
 
 /* List view */
 .list-layout {
   display: grid;
-  grid-template-columns: 320px 1fr;
-  gap: 2rem;
+  grid-template-columns: 1fr;
+  gap: 1rem;
   max-width: 1200px;
   margin: 0 auto;
 }
 
-@media (max-width: 800px) {
+@media (min-width: 800px) {
   .list-layout {
-    grid-template-columns: 1fr;
+    grid-template-columns: 320px 1fr;
+    gap: 2rem;
   }
 }
 
@@ -137,7 +167,7 @@ body {
   display: flex;
   align-items: center;
   gap: 0.75rem;
-  padding: 0.6rem 0.75rem;
+  padding: 0.7rem 0.75rem;
   border: 1px solid var(--border);
   border-radius: var(--radius);
   background: var(--bg-card);
@@ -146,6 +176,8 @@ body {
   width: 100%;
   font-family: inherit;
   transition: border-color 0.15s, box-shadow 0.15s;
+  -webkit-tap-highlight-color: transparent;
+  min-height: 48px; /* Minimum touch target */
 }
 
 .person-list-card:hover {
@@ -199,7 +231,13 @@ body {
   background: var(--bg-card);
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  padding: 1.5rem;
+  padding: 1rem;
+}
+
+@media (min-width: 600px) {
+  .form-section {
+    padding: 1.5rem;
+  }
 }
 
 .form-section h2 {
@@ -228,8 +266,15 @@ body {
 }
 
 .form-row.double {
-  flex-direction: row;
-  gap: 1rem;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+@media (min-width: 480px) {
+  .form-row.double {
+    flex-direction: row;
+    gap: 1rem;
+  }
 }
 
 .form-row label {
@@ -242,11 +287,23 @@ body {
 .form-row input[type="date"],
 .form-row select,
 .form-row textarea {
-  padding: 0.5rem 0.65rem;
+  padding: 0.6rem 0.65rem;
   border: 1px solid var(--border);
   border-radius: 6px;
   font-family: var(--font-sans);
-  font-size: 0.95rem;
+  font-size: 16px; /* Prevents iOS zoom on input focus */
+  min-height: 44px; /* Touch-friendly */
+}
+
+@media (min-width: 600px) {
+  .form-row input[type="text"],
+  .form-row input[type="date"],
+  .form-row select,
+  .form-row textarea {
+    font-size: 0.95rem;
+    min-height: unset;
+    padding: 0.5rem 0.65rem;
+  }
 }
 
 .form-row textarea {
@@ -389,13 +446,15 @@ body {
 
 /* Buttons */
 .btn {
-  padding: 0.5rem 1rem;
+  padding: 0.55rem 1rem;
   border-radius: 6px;
   font-family: var(--font-sans);
   font-size: 0.9rem;
   font-weight: 500;
   cursor: pointer;
   border: none;
+  min-height: 44px;
+  -webkit-tap-highlight-color: transparent;
 }
 
 .btn-primary {
@@ -434,16 +493,18 @@ body {
 /* Tree view */
 .tree-layout {
   display: grid;
-  grid-template-columns: 280px 1fr 280px;
-  gap: 1.5rem;
+  grid-template-columns: 1fr;
+  gap: 0;
   max-width: 1400px;
   margin: 0 auto;
   min-height: 400px;
+  position: relative;
 }
 
-@media (max-width: 900px) {
+@media (min-width: 900px) {
   .tree-layout {
-    grid-template-columns: 1fr;
+    grid-template-columns: 280px 1fr 280px;
+    gap: 1.5rem;
   }
 }
 
@@ -451,10 +512,23 @@ body {
   background: var(--bg-card);
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  padding: 1.5rem;
+  padding: 0.5rem;
   overflow: auto;
-  height: 70vh;
+  height: calc(100vh - 130px);
+  height: calc(100dvh - 130px);
   min-height: 320px;
+}
+
+@media (min-width: 600px) {
+  .tree-panel {
+    padding: 1.5rem;
+  }
+}
+
+@media (min-width: 900px) {
+  .tree-panel {
+    height: 70vh;
+  }
 }
 
 .tree-people-sidebar {
@@ -465,6 +539,110 @@ body {
   overflow: auto;
   height: 70vh;
   min-height: 320px;
+}
+
+/* Mobile: sidebar and detail are slide-over overlays */
+@media (max-width: 899px) {
+  .tree-people-sidebar,
+  .tree-detail {
+    position: fixed;
+    top: 0;
+    z-index: 100;
+    height: 100vh;
+    height: 100dvh;
+    border-radius: 0;
+    transition: transform 0.25s ease;
+    box-shadow: 0 0 20px rgba(0,0,0,0.15);
+  }
+
+  .tree-people-sidebar {
+    left: 0;
+    width: min(320px, 85vw);
+    transform: translateX(-100%);
+  }
+
+  .tree-people-sidebar.mobile-open {
+    transform: translateX(0);
+  }
+
+  .tree-detail {
+    right: 0;
+    left: auto;
+    width: min(320px, 85vw);
+    transform: translateX(100%);
+  }
+
+  .tree-detail.mobile-open {
+    transform: translateX(0);
+  }
+}
+
+.mobile-overlay-backdrop {
+  display: none;
+}
+
+@media (max-width: 899px) {
+  .mobile-overlay-backdrop {
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: 99;
+    background: rgba(0,0,0,0.3);
+    -webkit-tap-highlight-color: transparent;
+  }
+}
+
+/* Mobile close button — hidden on desktop */
+.mobile-close-btn {
+  display: none;
+}
+
+@media (max-width: 899px) {
+  .mobile-close-btn {
+    display: inline-flex;
+    font-size: 1.1rem;
+  }
+}
+
+/* Floating action buttons for mobile tree view */
+.tree-mobile-fab {
+  display: none;
+}
+
+@media (max-width: 899px) {
+  .tree-mobile-fab {
+    display: flex;
+    gap: 0.5rem;
+    position: fixed;
+    bottom: 1.25rem;
+    right: 1rem;
+    z-index: 90;
+  }
+}
+
+.btn-fab {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: #fff;
+  font-size: 1.3rem;
+  border: none;
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s, transform 0.15s;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.btn-fab:active {
+  transform: scale(0.93);
+}
+
+.btn-fab.active {
+  background: var(--ink);
 }
 
 .tree-person-list .person-list-card {
@@ -487,10 +665,25 @@ body {
   background: var(--bg-card);
   width: 100vw;
   height: 100vh;
-  padding: 1rem;
+  height: 100dvh;
+  padding: 0.5rem;
   overflow: auto;
   display: flex;
   flex-direction: column;
+}
+
+@media (min-width: 600px) {
+  .family-tree-view:fullscreen,
+  .family-tree-view.is-fullscreen {
+    padding: 1rem;
+  }
+}
+
+/* iOS Safari fallback: when .is-fullscreen but not :fullscreen */
+.family-tree-view.is-fullscreen:not(:fullscreen) {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
 }
 
 .family-tree-view:fullscreen .tree-toolbar,
@@ -505,22 +698,36 @@ body {
 }
 
 .tree-hint {
-  margin: 0 0 1rem;
-  font-size: 0.9rem;
+  margin: 0 0 0.5rem;
+  font-size: 0.8rem;
+}
+
+@media (min-width: 600px) {
+  .tree-hint {
+    margin: 0 0 1rem;
+    font-size: 0.9rem;
+  }
+}
+
+/* Hide hint on mobile to save space */
+@media (max-width: 1024px) {
+  .tree-hint {
+    display: none;
+  }
 }
 
 .tree-toolbar {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 0.75rem;
+  gap: 0.5rem;
   flex-wrap: wrap;
 }
 
 .tree-zoom-controls {
   display: inline-flex;
   align-items: center;
-  gap: 0.35rem;
+  gap: 0.25rem;
   flex-wrap: wrap;
 }
 
@@ -528,34 +735,54 @@ body {
   border: 1px solid var(--border);
   background: #fff;
   border-radius: 6px;
-  height: 28px;
-  min-width: 28px;
+  height: 36px;
+  min-width: 36px;
   cursor: pointer;
+  font-size: 0.85rem;
+  -webkit-tap-highlight-color: transparent;
+}
+
+@media (min-width: 600px) {
+  .tree-zoom-controls button {
+    height: 28px;
+    min-width: 28px;
+    font-size: inherit;
+  }
 }
 
 .tree-zoom-controls span {
   color: var(--ink-muted);
-  font-size: 0.8rem;
-  min-width: 44px;
+  font-size: 0.75rem;
+  min-width: 36px;
   text-align: center;
 }
 
 .tree-theme-controls {
   display: inline-flex;
   align-items: center;
-  gap: 0.35rem;
+  gap: 0.25rem;
   flex-wrap: wrap;
 }
 
+/* Hide theme labels on small screens, show abbreviations */
 .tree-theme-controls button {
   border: 1px solid var(--border);
   background: #fff;
   border-radius: 999px;
-  height: 28px;
-  padding: 0 0.65rem;
+  height: 32px;
+  padding: 0 0.5rem;
   cursor: pointer;
-  font-size: 0.78rem;
+  font-size: 0.7rem;
   color: var(--ink-muted);
+  -webkit-tap-highlight-color: transparent;
+}
+
+@media (min-width: 600px) {
+  .tree-theme-controls button {
+    height: 28px;
+    padding: 0 0.65rem;
+    font-size: 0.78rem;
+  }
 }
 
 .tree-theme-controls button.active {
@@ -677,6 +904,7 @@ body {
   border-radius: var(--radius);
   padding: 1.25rem;
   height: fit-content;
+  overflow-y: auto;
 }
 
 .tree-detail h2 {
@@ -733,12 +961,14 @@ body {
 }
 
 .tree-viewport {
-  overflow: auto;
+  overflow: hidden;
   max-width: 100%;
   min-height: 320px;
   touch-action: none;
   cursor: grab;
   user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
 }
 
 .family-tree-view:fullscreen .tree-viewport,
@@ -869,6 +1099,127 @@ body {
   color: var(--tree-you);
   font-weight: 500;
   margin-top: 2px;
+}
+
+/* Mobile + tablet: rectangle nodes, hide labels, tighter spacing, truncated names.
+   Applies to both portrait and landscape on phones/tablets. */
+@media (max-width: 1024px) {
+  .tree-circle {
+    border-radius: 8px;
+    width: auto;
+    min-width: 52px;
+    max-width: 90px;
+    min-height: 34px;
+    padding: 0.25rem 0.45rem;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
+  }
+
+  .tree-circle-dot {
+    top: 2px;
+    right: 2px;
+    width: 7px;
+    height: 7px;
+  }
+
+  .tree-circle-name {
+    font-size: 0.6rem;
+    line-height: 1.1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 72px;
+    display: block;
+  }
+
+  .tree-circle-you {
+    font-size: 0.45rem;
+    margin-top: 1px;
+  }
+
+  /* Hide all relationship labels (Partner, Child/Children, etc.) */
+  .tree-line-label {
+    display: none !important;
+  }
+
+  /* Shrink connectors and gaps to bring nodes closer */
+  .tree-couple-block {
+    margin-bottom: 0.6rem;
+  }
+
+  .tree-connector-h {
+    width: 10px !important;
+  }
+
+  .tree-connector-v {
+    height: 8px !important;
+    margin: 0.1rem 0;
+  }
+
+  .tree-couple-row {
+    gap: 0.3rem !important;
+  }
+
+  .tree-children-row {
+    gap: 0.4rem 0.5rem;
+    padding-top: 10px;
+  }
+
+  .tree-children-row::before {
+    left: 12px;
+    right: 12px;
+  }
+
+  .tree-children-row.single-child {
+    padding-top: 6px;
+  }
+
+  /* Adjust the vertical connector that joins couple to children */
+  .tree-couple-row.with-spouse-children::after {
+    height: calc(var(--node-size) / 2);
+  }
+
+  /* Hide theme controls on mobile to save toolbar space */
+  .tree-theme-controls {
+    display: none;
+  }
+
+  /* Hide the Reset button on mobile */
+  .tree-btn-desktop-only {
+    display: none;
+  }
+}
+
+/* Rotate-to-landscape hint — only shown in portrait on small screens */
+.tree-rotate-hint {
+  display: none;
+}
+
+@media (max-width: 768px) and (orientation: portrait) {
+  .tree-rotate-hint {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    background: var(--accent-soft);
+    color: var(--accent);
+    font-size: 0.8rem;
+    font-weight: 500;
+    padding: 0.4rem 0.75rem;
+    border-radius: 6px;
+    margin-bottom: 0.4rem;
+    text-align: center;
+  }
+
+  .tree-rotate-hint span {
+    font-size: 1.1rem;
+  }
+}
+
+/* In landscape on mobile, hide the rotate hint */
+@media (max-width: 768px) and (orientation: landscape) {
+  .tree-rotate-hint {
+    display: none;
+  }
 }
 
 .tree-connector-h-wrap,
